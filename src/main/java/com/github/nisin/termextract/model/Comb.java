@@ -7,9 +7,9 @@ import java.io.Serializable;
  * Created by Shoichi on 2014/01/30.
  */
 public class Comb implements Serializable {
-    private static final long serialVersionUID = -3826279170058085412L;
+    private static final long serialVersionUID = 2754193820752299262L;
     /** 特長語 */
-    String noun;
+    public String noun;
     /** 頻度 */
-    Integer frq;
+    public Integer frq;
 }

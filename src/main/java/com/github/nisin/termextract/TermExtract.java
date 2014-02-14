@@ -1,6 +1,8 @@
 package com.github.nisin.termextract;
 
-import com.github.nisin.termextract.model.Articulate;
+import com.github.nisin.termextract.model.Comb;
+import com.github.nisin.termextract.model.Df;
+import com.github.nisin.termextract.model.Stat;
 import com.github.nisin.termextract.model.Term;
 import com.google.common.base.*;
 import com.google.common.collect.*;
@@ -17,44 +19,44 @@ import java.util.regex.Pattern;
  */
 public class TermExtract {
     private static final int MAX_CMP_SIZE = 1024;
-    TermDBProvider provider;
-    Map<String,Articulate> articulates;
-    Map<String,Integer> combs;
-    Map<String,Integer> documentFrequency;
-//    /** 文中の専門用語とその頻度 */
-//    Map<String,Integer> cmp_noun_list = Maps.newHashMap();
+    private TermDBProvider provider;
+    private Map<String,Stat> stats;
+    private Map<String,Comb> combs;
+    private Map<String,Df> documentFrequency;
+
+
     /**          # 重要度計算対象外にする語のリスト（配列） */
-    Set<String> ignore_words    = Sets.newHashSet();
-    Tokenizer tokenizer = Tokenizer.builder().build();
+    private Set<String> ignore_words    = Sets.newHashSet();
+    private final Tokenizer tokenizer = Tokenizer.builder().build();
 
     /** LRの設定　0: LRなし 1: 延べ数 2: 異なり数 3: パープレキシティ */
-    enum LR_METHOD { no_LR,LR_TOTAL,LR_UNIQ,PERPLEXITY }
-    LR_METHOD lr_method = LR_METHOD.LR_TOTAL;
+    private enum LR_METHOD { no_LR,LR_TOTAL,LR_UNIQ,PERPLEXITY }
+    private LR_METHOD lr_method = LR_METHOD.LR_TOTAL;
     /** # 文中の用語頻度を、0: 無効にする 1: 有効にする  2: TFにする */
     enum FRQ_METHOD { no_FRQ, SIMPLE_FRQ, TERM_FRQ }
-    FRQ_METHOD frq_method = FRQ_METHOD.SIMPLE_FRQ;
+    private FRQ_METHOD frq_method = FRQ_METHOD.SIMPLE_FRQ;
     /** # 重要度計算での連接情報と文中の用語頻度のバランス */
-    double average_rate         = 1.0d;
+    private double average_rate         = 1.0d;
     /** # 重要度計算で学習機能結果の使用  */
-    boolean stat_mode           = false;
+    private boolean stat_mode           = false;
     /** # 学習用DBにデータを蓄積するか  */
-    boolean storage_mode        = false;
+    private boolean storage_mode        = false;
     /** # df 用DBにデータを蓄積するか  */
-    boolean storage_df          = false;
+    private boolean storage_df          = false;
     /** # 重要度計算にIDFを使用するか */
-    boolean with_idf            = false;
+    private boolean with_idf            = false;
     /** # 処理対象言語が膠着言語か */
-    boolean agglutinative_lang  = true;
+    private boolean agglutinative_lang  = true;
 
-    private Predicate<String> NOUN_FILTER = new Predicate<String>() {
-        Pattern ALL_SPACE = Pattern.compile("^\\s*$");
+    private static final Predicate<String> NOUN_FILTER = new Predicate<String>() {
+        final Pattern ALL_SPACE = Pattern.compile("^\\s*$");
         @Override
         public boolean apply(String s) {
             return ! (ALL_SPACE.matcher(s).matches() || s.length() > MAX_CMP_SIZE);
         }
     };
     private static final Pattern ALL_DECIMAL = Pattern.compile("^[\\d,\\.]$");
-    private Predicate<String> IGNORE_FILTER = new Predicate<String>() {
+    private final Predicate<String> IGNORE_FILTER = new Predicate<String>() {
         @Override
         public boolean apply(String s) {
             return !(ignore_words.contains(s) || ALL_DECIMAL.matcher(s).matches());
@@ -62,13 +64,20 @@ public class TermExtract {
     };
 
     public TermExtract(TermDBProvider provider) {
+        reloadTermDB(provider);
+    }
+    @SuppressWarnings("WeakerAccess")
+    public void reloadTermDB(TermDBProvider provider) {
         this.provider = provider;
-        articulates = provider.getArticulateMap();
+        stats = provider.getStatMap();
         combs = provider.getCombMap();
         documentFrequency = provider.getDocumentFrequencyMap();
     }
     public TermExtract() {}
 
+    public void setIgnore_words(Set<String> ignore_words) {
+        this.ignore_words = ignore_words;
+    }
     public TermExtract with_idf() {
         if (provider==null) throw new RuntimeException();
         with_idf = true;
@@ -136,7 +145,7 @@ public class TermExtract {
     public double getAverage_rate() { return average_rate; }
 
     public void study_term(String text) {
-        String nfkc_text = Normalizer.normalize(text.toLowerCase(), Normalizer.Form.NFKC);
+        String nfkc_text = Normalizer.normalize(text.toUpperCase(), Normalizer.Form.NFKC);
         List<Token> tokens = tokenizer.tokenize(nfkc_text);
         Map<String,Integer> noun_frq = get_noun_frq(tokens);
         if (storage_df) {
@@ -153,7 +162,7 @@ public class TermExtract {
      * @return キーワードリスト
      */
     public List<Term> calc_imp_word(String text) {
-        String nfkc_text = Normalizer.normalize(text.toLowerCase(), Normalizer.Form.NFKC);
+        String nfkc_text = Normalizer.normalize(text.toUpperCase(), Normalizer.Form.NFKC);
         List<Token> tokens = tokenizer.tokenize(nfkc_text);
         Map<String,Integer> noun_frq = get_noun_frq(tokens);
         // LR以外の重要度計算
@@ -339,13 +348,13 @@ public class TermExtract {
             // メソッド IgnoreWords で指定した語と数値を無視する
             Deque<String> nouns = Lists.newLinkedList( Iterables.filter(sp.split(cmp_noun),IGNORE_FILTER));
             for (String noun : nouns) {
-                Articulate articulate;
-                if ((articulate = articulates.get(noun))==null)
-                    articulate = new Articulate();
+                Stat stat;
+                if ((stat = stats.get(noun))==null)
+                    stat = new Stat();
                 if (lr_method ==LR_METHOD.LR_TOTAL)
-                    imp *= (articulate.total_pre+1)*(articulate.total_post+1);
+                    imp *= (stat.total_pre+1)*(stat.total_post+1);
                 else if (lr_method ==LR_METHOD.LR_UNIQ)
-                    imp *= (articulate.uniq_pre+1) * (articulate.uniq_post+1);
+                    imp *= (stat.uniq_pre+1) * (stat.uniq_post+1);
                 count++;
             }
             if (count==0) count=1;
@@ -456,8 +465,8 @@ public class TermExtract {
         return modify_noun_list(n_imps);
     }
 
-    static final Pattern PAT_ALPHA_ONLY = Pattern.compile("^\\p{L}+$");
-    static final Pattern SPLIT_SPACE = Pattern.compile("\\s+");
+    private static final Pattern PAT_ALPHA_ONLY = Pattern.compile("^\\p{L}+$");
+    private static final Pattern SPLIT_SPACE = Pattern.compile("\\s+");
     /**
      * #=================================================================
      #
@@ -548,13 +557,13 @@ public class TermExtract {
      * @return 処理結果
      */
     private List<Term> modify_noun_list(Map<String,Double> nouns) {
-        final int doc_count = documentFrequency.get(" ");
+        final int doc_count = documentFrequency.get(" ").frq;
         Map<String,Double> n_imp;
         if (with_idf) {
             n_imp = Maps.transformEntries(nouns,new Maps.EntryTransformer<String, Double, Double>() {
                 @Override
                 public Double transformEntry(String s, Double imp) {
-                    int  df = documentFrequency.get(s);
+                    int  df = documentFrequency.get(s).frq;
                     double idf = 1.0d * doc_count / df;
                     return (( Math.log(idf) / Math.log((double)2) ) + 1d ) * imp;
                 }
@@ -628,12 +637,14 @@ public class TermExtract {
     private void storage_df_proc(Map<String, Integer> noun_frq) {
         for (String key : noun_frq.keySet()) {
             if (!Strings.isNullOrEmpty(key) && key.length() < MAX_CMP_SIZE) {
-                int df = documentFrequency.get(key);
-                documentFrequency.put(key,++df);
+                Df df = documentFrequency.get(key);
+                df.frq++;
+                documentFrequency.put(key,df);
             }
         }
-        int df = documentFrequency.get(" ");
-        documentFrequency.put(" ",++df);
+        Df df = documentFrequency.get(" ");
+        df.frq++;
+        documentFrequency.put(" ",df);
     }
 
     /**
@@ -660,41 +671,43 @@ public class TermExtract {
                     /**
                      * 単名詞ごとの連接統計情報[Pre(N), Post(N)]を累積
                      */
-                    Articulate articulate;
+                    Stat stat;
                     // post word (後ろにとりうる単名詞）
-                    if ((articulate = articulates.get(noun))==null)
-                        articulate = new Articulate();
+                    if ((stat = stats.get(noun))==null)
+                        stat = new Stat();
                     if (first)
-                        articulate.uniq_post += 1;
+                        stat.uniq_post += 1;
 
-                    articulate.total_post += frq;
-                    articulate.noun =  noun;
-                    articulates.put(noun,articulate);
+                    stat.total_post += frq;
+                    stat.noun =  noun;
+                    stats.put(noun, stat);
                     // pre word　（前にとりうる単名詞）
-                    if ((articulate = articulates.get(noun_post))==null)
-                        articulate = new Articulate();
+                    if ((stat = stats.get(noun_post))==null)
+                        stat = new Stat();
                     if (first)
-                        articulate.uniq_post += 1;
+                        stat.uniq_post += 1;
 
-                    articulate.total_post += frq;
-                    articulate.noun =  noun;
-                    articulates.put(noun,articulate);
+                    stat.total_post += frq;
+                    stat.noun =  noun;
+                    stats.put(noun, stat);
                     // 連接語とその頻度情報を累積
-                    Integer comb_frq = 0 ;
+                    Comb comb;
                     if (combs.containsKey(comb_key))
-                        comb_frq = combs.get(comb_key);
-                    comb_frq += frq;
-                    combs.put(comb_key,comb_frq);
+                        comb = combs.get(comb_key);
+                    else
+                        comb = new Comb() ;
+                    comb.frq += frq;
+                    combs.put(comb_key,comb);
                 }
             }
         }
     }
 
-    static final Pattern PAT_PUNCT = Pattern.compile("^[\\p{Ps}\\p{Pe}|\"';,]");
-    static final Pattern PAT_ALPHA_PFX = Pattern.compile("^[\\p{L}]");
-    static final Pattern PAT_ALPHA_SFX = Pattern.compile("[\\p{L}]$");
-    static final Pattern PAT_ONLY_PUNCT = Pattern.compile("^[\\s\\p{Ps}\\p{Pe}\\p{Po}$]");
-    static final Set<String> SURPLUS_SFX = Sets.newHashSet( "など", "ら", "上", "内", "型", "間", "中","毎","等");
+    private static final Pattern PAT_PUNCT = Pattern.compile("^[\\p{Ps}\\p{Pe}|\"';,]");
+    private static final Pattern PAT_ALPHA_PFX = Pattern.compile("^[\\p{L}]");
+    private static final Pattern PAT_ALPHA_SFX = Pattern.compile("[\\p{L}]$");
+    private static final Pattern PAT_ONLY_PUNCT = Pattern.compile("^[\\s\\p{Ps}\\p{Pe}\\p{Po}$]");
+    private static final Set<String> SURPLUS_SFX = Sets.newHashSet( "など", "ら", "上", "内", "型", "間", "中","毎","等");
 
     /**
      # get_noun_frq -- Get noun frequency.

@@ -6,8 +6,9 @@ import java.io.Serializable;
  * 単名詞単位の連接語統計
  * Created by Shoichi on 2014/01/30.
  */
-public class Articulate implements Serializable {
+public class Stat implements Serializable {
 
+    private static final long serialVersionUID = -1519579388676753543L;
     /** 特長語 */
     public String  noun;
     /** 単独前方連接 */

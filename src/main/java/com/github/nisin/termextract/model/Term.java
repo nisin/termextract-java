@@ -3,6 +3,7 @@ package com.github.nisin.termextract.model;
 import java.io.Serializable;
 
 /**
+ *
  * Created by Shoichi on 2014/02/03.
  */
 public class Term implements Serializable{
