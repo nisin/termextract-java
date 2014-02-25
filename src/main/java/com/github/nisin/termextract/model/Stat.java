@@ -12,11 +12,11 @@ public class Stat implements Serializable {
     /** 特長語 */
     public String  noun;
     /** 単独前方連接 */
-    public Integer uniq_pre;
+    public int uniq_pre;
     /** 計前方連接 */
-    public Integer total_pre;
+    public int total_pre;
     /** 単独後方連接 */
-    public Integer uniq_post;
+    public int uniq_post;
     /** 計前方連接 */
-    public Integer total_post;
+    public int total_post;
 }

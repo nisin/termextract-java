@@ -11,5 +11,5 @@ public class Comb implements Serializable {
     /** 特長語 */
     public String noun;
     /** 頻度 */
-    public Integer frq;
+    public int frq;
 }

@@ -11,5 +11,5 @@ import java.io.Serializable;
 public class Df implements Serializable {
     private static final long serialVersionUID = -1825036726902944889L;
     public String noun;
-    public Integer frq;
+    public int frq;
 }

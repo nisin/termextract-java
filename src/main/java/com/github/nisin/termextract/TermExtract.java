@@ -8,6 +8,7 @@ import com.google.common.base.*;
 import com.google.common.collect.*;
 import org.atilika.kuromoji.Token;
 import org.atilika.kuromoji.Tokenizer;
+import sun.jvm.hotspot.debugger.posix.elf.ELFSectionHeader;
 
 import java.text.Normalizer;
 import java.util.*;
@@ -78,70 +79,87 @@ public class TermExtract {
     public void setIgnore_words(Set<String> ignore_words) {
         this.ignore_words = ignore_words;
     }
+    /** # 重要度計算にIDFを使用するか */
     public TermExtract with_idf() {
         if (provider==null) throw new RuntimeException();
         with_idf = true;
         return this;
     }
+    /** # 重要度計算にIDFを使用するか */
     public TermExtract no_idf() {
         with_idf = false;
         return this;
     }
+    /** LRの設定　0: LRなし 1: 延べ数 2: 異なり数 3: パープレキシティ */
     public TermExtract no_lr() {
         lr_method=LR_METHOD.no_LR;
         return this;
     }
+    /** LRの設定　0: LRなし 1: 延べ数 2: 異なり数 3: パープレキシティ */
     public TermExtract lr_total() {
         lr_method=LR_METHOD.LR_TOTAL;
         return this;
     }
+    /** LRの設定　0: LRなし 1: 延べ数 2: 異なり数 3: パープレキシティ */
     public TermExtract lr_uniq() {
         lr_method=LR_METHOD.LR_UNIQ;
         return this;
     }
+    /** LRの設定　0: LRなし 1: 延べ数 2: 異なり数 3: パープレキシティ */
     public TermExtract lr_perplexity() {
         if (storage_mode) throw new RuntimeException();
         lr_method=LR_METHOD.PERPLEXITY;
         return this;
     }
+    /** # 文中の用語頻度を、0: 無効にする 1: 有効にする  2: TFにする */
     public TermExtract no_frq() {
         frq_method=FRQ_METHOD.no_FRQ;
         return this;
     }
+    /** # 文中の用語頻度を、0: 無効にする 1: 有効にする  2: TFにする */
     public TermExtract simple_frq() {
         frq_method=FRQ_METHOD.SIMPLE_FRQ;
         return this;
     }
+    /** # 文中の用語頻度を、0: 無効にする 1: 有効にする  2: TFにする */
     public TermExtract term_frq() {
         frq_method=FRQ_METHOD.TERM_FRQ;
         return this;
     }
+    /** # 学習用DBにデータを蓄積するか  */
     public TermExtract storage() {
         storage_mode=true;
         return this;
     }
+    /** # 学習用DBにデータを蓄積するか  */
     public TermExtract no_storage() {
         storage_mode=false;
         return this;
     }
+    /** # df 用DBにデータを蓄積するか  */
     public TermExtract storage_df() {
         storage_df=true;
         return this;
     }
+    /** # df 用DBにデータを蓄積するか  */
     public TermExtract no_storage_df() {
         storage_df=false;
         return this;
     }
+    /** # 重要度計算で学習機能結果の使用  */
     public TermExtract stat_mode() {
         stat_mode=true;
         return this;
     }
+    /** # 重要度計算で学習機能結果の使用  */
     public TermExtract no_stat() {
         stat_mode=false;
         return this;
     }
 
+    /** # 重要度計算での連接情報と文中の用語頻度のバランス */
     public void setAverage_rate(double average_rate) { this.average_rate = average_rate; }
+    /** # 重要度計算での連接情報と文中の用語頻度のバランス */
     public double getAverage_rate() { return average_rate; }
 
     public void study_term(String text) {
@@ -249,7 +267,7 @@ public class TermExtract {
 
         // 専門用語ごとにループ
         Set<String> n_cont_keys = Maps.filterKeys(noun_frq, NOUN_FILTER).keySet();
-        Splitter sp = Splitter.on(SPLIT_SPACE);
+        Splitter sp = SPLIT_SPACE;
         Joiner normal = Joiner.on(" ");
         // 計数ワーク
         Set<String> comb = Sets.newHashSet();
@@ -266,20 +284,20 @@ public class TermExtract {
                 String comb_key = normal.join(noun_pre,noun_post);
                 boolean first = comb.contains(comb_key);
                 comb.add(comb_key);
-                int imp = noun_frq.get(cmp_noun);
+                int imp = Objects.firstNonNull(noun_frq.get(cmp_noun),0);
                 int imp_stat;
                 // 連接語の”延べ数”をとる場合
                 if (lr_method==LR_METHOD.LR_TOTAL) {
-                    imp_stat = stat_pre.get(noun_pre);
+                    imp_stat = Objects.firstNonNull(stat_pre.get(noun_pre),0);
                     stat_pre.put(noun_pre,imp+imp_stat);
-                    imp_stat = stat_post.get(noun_post);
+                    imp_stat = Objects.firstNonNull(stat_post.get(noun_post), 0);
                     stat_post.put(noun_post,imp+imp_stat);
                 }
                 // 連接語の異なり数をとる場合
                 else if (lr_method==LR_METHOD.LR_UNIQ && first) {
-                    imp_stat = stat_pre.get(noun_pre);
+                    imp_stat = Objects.firstNonNull(stat_pre.get(noun_pre),0);
                     stat_pre.put(noun_pre,++imp_stat);
-                    imp_stat = stat_post.get(noun_post);
+                    imp_stat = Objects.firstNonNull(stat_post.get(noun_post), 0);
                     stat_post.put(noun_post,++imp_stat);
                 }
             }
@@ -299,8 +317,8 @@ public class TermExtract {
             // メソッド IgnoreWords で指定した語と数値を無視する
             Deque<String> nouns = Lists.newLinkedList( Iterables.filter(sp.split(cmp_noun),IGNORE_FILTER));
             for (String noun : nouns) {
-                int pre = stat_pre.get(noun);
-                int post = stat_post.get(noun);
+                int pre = Objects.firstNonNull(stat_pre.get(noun), 0);
+                int post = Objects.firstNonNull(stat_post.get(noun), 0);
                 imp *= (pre+1) * (post+1);
                 count++;
             }
@@ -339,7 +357,7 @@ public class TermExtract {
 
         // 専門用語ごとにループ
         Map<String,Double> n_imps = Maps.newHashMap();
-        Splitter sp = Splitter.on(SPLIT_SPACE);
+        Splitter sp = SPLIT_SPACE;
         for (Map.Entry<String,Integer> entry : n_cont.entrySet()) {
             double imp = 1;
             int count = 0;
@@ -390,7 +408,7 @@ public class TermExtract {
 
         // 専門用語ごとにループ
         Set<String> n_cont_keys = n_cont.keySet();
-        Splitter sp = Splitter.on(SPLIT_SPACE);
+        Splitter sp = SPLIT_SPACE;
         Map<String,Double> stat_pp = Maps.newHashMap();
         // 計数ワーク
         Map<String,Integer> stat_pre = Maps.newHashMap();
@@ -405,15 +423,15 @@ public class TermExtract {
             while (nouns.size() > 1) {
                 String noun_pre = nouns.pop();
                 String noun_post = nouns.peek();
-                int imp = n_cont.get(cmp_noun);
+                int imp = Objects.firstNonNull(n_cont.get(cmp_noun), 0);
                 int imp_stat;
-                imp_stat = stat_pre.get(noun_pre);
+                imp_stat = Objects.firstNonNull(stat_pre.get(noun_pre), 0);
                 stat_pre.put(noun_pre,imp+imp_stat);
-                imp_stat = stat_post.get(noun_post);
+                imp_stat = Objects.firstNonNull(stat_post.get(noun_post), 0);
                 stat_post.put(noun_post,imp+imp_stat);
-                imp_stat = pre.get(noun_post,noun_pre);
+                imp_stat = Objects.firstNonNull(pre.get(noun_post, noun_pre), 0);
                 pre.put(noun_post,noun_pre,++imp_stat);
-                imp_stat = post.get(noun_pre,noun_post);
+                imp_stat = Objects.firstNonNull(post.get(noun_pre, noun_post), 0);
                 pre.put(noun_pre,noun_post,++imp_stat);
 
                 // 全ての単名詞について処理
@@ -423,7 +441,7 @@ public class TermExtract {
                     double work ;
                     // 単名詞のエントロピーを求める（後に連接するケース）
                     if (stat_pre.containsKey(noun1)) {
-                        int imp1 = stat_pre.get(noun1);
+                        int imp1 = Objects.firstNonNull(stat_pre.get(noun1), 0);
                         for (Integer imp2 : post.row(noun1).values()) {
                             work = 1.0d * imp2 / (imp1 + 1);
                             h -= work * Math.log(work);
@@ -431,7 +449,7 @@ public class TermExtract {
                     }
                     // 単名詞のエントロピーを求める（前に連接するケース）
                     if (stat_post.containsKey(noun1)) {
-                        int imp1 = stat_pre.get(noun1);
+                        int imp1 = Objects.firstNonNull(stat_pre.get(noun1), 0);
                         for (Integer imp2 : pre.row(noun1).values()) {
                             work = 1.0d * imp2 / (imp1 + 1);
                             h -= work * Math.log(work);
@@ -452,21 +470,20 @@ public class TermExtract {
             Deque<String> nouns = Lists.newLinkedList( Iterables.filter(sp.split(cmp_noun),IGNORE_FILTER));
             for (String noun : nouns) {
                 if (stat_pp.containsKey(noun))
-                    imp += stat_pp.get(noun);
+                    imp += Objects.firstNonNull(stat_pp.get(noun), 0.0);
                 count++;
             }
             if (count==0) count=1;
             imp = imp / (2 * average_rate * count);
             if (frq_method !=FRQ_METHOD.no_FRQ)
-                imp += Math.log(n_cont.get(cmp_noun)+1);
+                imp += Math.log(Objects.firstNonNull(n_cont.get(cmp_noun),0)+1);
             imp = imp / Math.log(2);
             n_imps.put(cmp_noun,imp);
         }
         return modify_noun_list(n_imps);
     }
 
-    private static final Pattern PAT_ALPHA_ONLY = Pattern.compile("^\\p{L}+$");
-    private static final Pattern SPLIT_SPACE = Pattern.compile("\\s+");
+    private static final Splitter SPLIT_SPACE = Splitter.on(Pattern.compile("\\s+"));
     /**
      * #=================================================================
      #
@@ -481,11 +498,16 @@ public class TermExtract {
         Map<String,Integer> nouns = Maps.filterKeys(noun_frq, NOUN_FILTER);
         Map<String,Integer> n_imps = Maps.newHashMap();
         // # TF重要度計算用の作業用配列
-        ListMultimap<Integer,String> tf_data = MultimapBuilder.treeKeys().arrayListValues().build();
-        Splitter sp = Splitter.on(SPLIT_SPACE);
+        ListMultimap<Integer,String> tf_data = Multimaps.newListMultimap(new TreeMap<Integer, Collection<String>>(),new Supplier<List<String>>() {
+            @Override
+            public List<String> get() {
+                return Lists.newArrayList();
+            }
+        }); // .treeKeys().arrayListValues().build();
+//        Splitter sp = SPLIT_SPACE;
         Joiner normal = Joiner.on(" ");
         for (String noun : nouns.keySet()) {
-            Iterable<String> words = sp.split(noun);
+            Iterable<String> words = SPLIT_SPACE.split(noun);
             String noun_normal = normal.join(words);
             tf_data.put(Iterables.size(words),noun_normal);
             n_imps.put(noun_normal,nouns.get(noun));
@@ -501,8 +523,8 @@ public class TermExtract {
                     List<String> nouns2 = tf_data.get(wc2);
                     for (String noun2 : nouns2 ) {
                         if (noun2.contains(noun1)) {
-                            int imp = n_imps.get(noun1);
-                            imp += n_imps.get(noun2);
+                            int imp = Objects.firstNonNull(n_imps.get(noun1), 0);
+                            imp += Objects.firstNonNull(n_imps.get(noun2), 0);
                             n_imps.put(noun1,imp);
                         }
                     }
@@ -547,6 +569,12 @@ public class TermExtract {
         });
         return modify_noun_list(n_imp);
     }
+    private static final Ordering<Term> SCORE_ORDER = Ordering.natural().onResultOf(new Function<Term, Comparable>() {
+        @Override
+        public Comparable apply(Term term) {
+            return term.score;
+        }
+    }).reverse();
     /**
      * #=================================================================
      #
@@ -557,13 +585,14 @@ public class TermExtract {
      * @return 処理結果
      */
     private List<Term> modify_noun_list(Map<String,Double> nouns) {
-        final int doc_count = documentFrequency.get(" ").frq;
+        final Df zeroDf = new Df();
+        final int doc_count = Objects.firstNonNull(documentFrequency.get(" "),zeroDf).frq;
         Map<String,Double> n_imp;
         if (with_idf) {
             n_imp = Maps.transformEntries(nouns,new Maps.EntryTransformer<String, Double, Double>() {
                 @Override
                 public Double transformEntry(String s, Double imp) {
-                    int  df = documentFrequency.get(s).frq;
+                    int  df = Objects.firstNonNull(documentFrequency.get(s),zeroDf).frq;
                     double idf = 1.0d * doc_count / df;
                     return (( Math.log(idf) / Math.log((double)2) ) + 1d ) * imp;
                 }
@@ -572,34 +601,23 @@ public class TermExtract {
         else {
             n_imp = nouns;
         }
-        Ordering<Term> order = Ordering.natural().onResultOf(new Function<Term, Comparable>() {
-            @Override
-            public Comparable apply(Term term) {
-                return term.score;
-            }
-        }).reverse();
         Iterable<Term> term_list = Iterables.transform(n_imp.entrySet(),new Function<Map.Entry<String, Double>, Term>() {
             @Override
             public Term apply(Map.Entry<String, Double> entry) {
                 Term term = new Term();
-                term.noun = entry.getKey();
+                if (agglutinative_lang)
+                    term.noun = modify_agglutinative_lang(entry.getKey());
+                else
+                    term.noun = entry.getKey();
                 term.score = entry.getValue();
                 return term;
             }
         });
-        if (agglutinative_lang) {
-            term_list = Iterables.transform(term_list,new Function<Term, Term>() {
-                @Override
-                public Term apply(Term term) {
-                    term.noun = modify_agglutinative_lang(term.noun);
-                    return term;
-                }
-            });
-        }
-        return order.sortedCopy(term_list);
+        return SCORE_ORDER.sortedCopy(term_list);
     }
 
 
+    private static final Pattern PAT_LATIN_LETTER_ONLY = Pattern.compile("^[\\p{Lu}\\p{Ll}\\p{Lm}\\p{Lt}]+$");
     /**
      * #================================================================
      #
@@ -615,8 +633,8 @@ public class TermExtract {
         boolean eng_pre=false;
         // # 前後ともLatinなら半角空白空け
         // # 上記以外なら区切りなしで連結
-        for (String s : Splitter.on(SPLIT_SPACE).split(noun)) {
-            eng = PAT_ALPHA_ONLY.matcher(s).matches();
+        for (String s : SPLIT_SPACE.split(noun)) {
+            eng = PAT_LATIN_LETTER_ONLY.matcher(s).matches() ;
             if (eng && eng_pre)
                 sb.append(" ");
             sb.append(s);
@@ -638,11 +656,13 @@ public class TermExtract {
         for (String key : noun_frq.keySet()) {
             if (!Strings.isNullOrEmpty(key) && key.length() < MAX_CMP_SIZE) {
                 Df df = documentFrequency.get(key);
+                if (df==null) df = new Df();
                 df.frq++;
                 documentFrequency.put(key,df);
             }
         }
         Df df = documentFrequency.get(" ");
+        if (df==null) df = new Df();
         df.frq++;
         documentFrequency.put(" ",df);
     }
@@ -656,7 +676,7 @@ public class TermExtract {
      */
     private void storage_stat_proc(Map<String, Integer> noun_frq) {
 
-        Splitter sp = Splitter.on(SPLIT_SPACE);
+        Splitter sp = SPLIT_SPACE;
         Joiner normal = Joiner.on(" ");
         for (Map.Entry<String, Integer> nounEntry : noun_frq.entrySet()) {
             String cmp_noun = nounEntry.getKey();
@@ -718,7 +738,7 @@ public class TermExtract {
      */
     private Map<String,Integer> get_noun_frq(List<Token> tokens) {
         agglutinative_lang = true;
-        Map<String,Integer> noun_frq = Maps.newHashMap();
+        Map<String,Integer> noun_frq = Maps.newLinkedHashMap();
         Deque<String> unknown = Lists.newLinkedList();
         Deque<String> terms = Lists.newLinkedList();
         boolean must = false;
@@ -729,16 +749,10 @@ public class TermExtract {
             String cl_1 = features[1];
             String cl_2 = features[2];
             if (part_of_speach.equals("m語") && PAT_PUNCT.matcher(noun).matches()==false) {
-                if (unknown.isEmpty()) {
+                if (unknown.isEmpty()||
+                    (PAT_ALPHA_SFX.matcher( unknown.getLast() ).matches() && PAT_ALPHA_PFX.matcher(noun).matches())) {
                     unknown.add(noun);
                     continue;
-                }
-                else {
-                    if (PAT_ALPHA_SFX.matcher( unknown.getLast() ).matches() &&
-                            PAT_ALPHA_PFX.matcher(noun).matches()) {
-                        unknown.add(noun);
-                        continue;
-                    }
                 }
             }
             while (unknown.size()>0) {
@@ -764,7 +778,8 @@ public class TermExtract {
                 continue;
             }
             else if((part_of_speach.equals("名詞") && cl_1.equals("形容動詞語幹")) ||
-                    (part_of_speach.equals("名詞") && cl_1.equals("ナイ形容詞語幹")))
+                    (part_of_speach.equals("名詞") && cl_1.equals("ナイ形容詞語幹"))||
+                    part_of_speach.equals("感動詞"))
             {
                 terms.add(noun);
                 must = true;
@@ -792,7 +807,7 @@ public class TermExtract {
                 }
                 if (terms.size()>0) {
                     String term = Joiner.on(" ").join(terms);
-                    int frq = noun_frq.get(term) ;
+                    int frq = Objects.firstNonNull(noun_frq.get(term),0) ;
                     noun_frq.put(term,++frq);
                     terms.clear();
                 }
