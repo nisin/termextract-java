@@ -31,6 +31,6 @@ http://gensen.dl.itc.u-tokyo.ac.jp/termextract.html
 東京大学情報基盤センターの「言選Web」上で公開されているTermExtract.pmを
  リスペクトした、nisin.lib &lt;nisin.lib@gmail.com&gt; がjavaで開発したものである。
 
- このモジュールは全く私[nisin.lib]の一存で公開するし、制度品質その他いっさいは
+ このモジュールは全く私[nisin.lib]の一存で公開するし、精度品質その他いっさいは
 あるがままの提供とし、本プログラムの使用において生じたいかなる結果
 に関しても当方では一切責任を負わない。
