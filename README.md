@@ -28,7 +28,7 @@ http://gensen.dl.itc.u-tokyo.ac.jp/termextract.html
  このプログラムは、東京大学・中川裕志教授、横浜国立大学・森辰則助教授が
  作成した「専門用語自動抽出システム」のExtract.pm  を参考に、中川教授の
  教示を受け、東京大学・前田朗(maeda@lib.u-tokyo.ac.jp)がコーディングし直した
- 「言選Web」のTermExtract.pmをリスペクトして、
+ 情報基盤センターの「言選Web」からTermExtract.pmをリスペクトして、
  nisin.lib &lt;nisin.lib@gmail.com&gt; がjavaで開発したものである。
 
  このモジュールは全く私[nisin.lib]の一存で公開するし、制度品質その他いっさいは
