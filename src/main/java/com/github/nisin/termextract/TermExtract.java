@@ -724,8 +724,8 @@ public class TermExtract {
     }
 
     private static final Pattern PAT_PUNCT = Pattern.compile("^[\\p{Ps}\\p{Pe}|\"';,]");
-    private static final Pattern PAT_ALPHA_PFX = Pattern.compile("^[\\p{L}]");
-    private static final Pattern PAT_ALPHA_SFX = Pattern.compile("[\\p{L}]$");
+    private static final Pattern PAT_ALPHA_PFX = Pattern.compile("^[\\p{Lu}\\p{Ll}\\p{Lm}\\p{Lt}]");
+    private static final Pattern PAT_ALPHA_SFX = Pattern.compile("[\\p{Lu}\\p{Ll}\\p{Lm}\\p{Lt}]$");
     private static final Pattern PAT_ONLY_PUNCT = Pattern.compile("^[\\s\\p{Ps}\\p{Pe}\\p{Po}$]");
     private static final Set<String> SURPLUS_SFX = Sets.newHashSet( "など", "ら", "上", "内", "型", "間", "中","毎","等");
 
